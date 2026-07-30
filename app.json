@@ -1,0 +1,51 @@
+{
+  "name": "HARRY CHATBOT",
+  "description": "Professional Modular Telegram AI Chatbot by Harry",
+  "repository": "https://github.com/SIDHIMUSIC/trryfreetg",
+  "logo": "https://graph.org/file/705cda02e63f4cb0bdb90-ce4d0ddd3a8cf38b5a.jpg",
+  "keywords": ["telegram", "bot", "ai", "chatbot", "python"],
+  "env": {
+    "TELEGRAM_BOT_TOKEN": {
+      "description": "Telegram Bot Token from @BotFather",
+      "required": true
+    },
+    "OPENROUTER_API_KEY": {
+      "description": "OpenRouter API Key",
+      "required": true
+    },
+    "MONGODB_URI": {
+      "description": "MongoDB Connection URI",
+      "required": true
+    },
+    "OWNER_ID": {
+      "description": "Owner Telegram User ID",
+      "required": true
+    },
+    "LOG_GROUP_ID": {
+      "description": "Log Group ID (optional)",
+      "required": false,
+      "value": "0"
+    },
+    "SUPPORT_CHANNEL": {
+      "description": "Support Channel URL",
+      "required": false,
+      "value": "https://t.me/TG_BIO_STYLE"
+    },
+    "AI_MODEL": {
+      "description": "AI Model name",
+      "required": false,
+      "value": "deepseek/deepseek-chat"
+    }
+  },
+  "formation": {
+    "worker": {
+      "quantity": 1,
+      "size": "eco"
+    }
+  },
+  "buildpacks": [
+    {
+      "url": "heroku/python"
+    }
+  ]
+}
