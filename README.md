@@ -1,7 +1,15 @@
 # 👑 HARRY CHATBOT
 
 > Professional Modular Telegram AI Bot  
-> Made with ❤️ by **Harry** ([@SANATANI_BACHA](https://t.me/SANATANI_BACHA))
+> Made with ❤️ by **Harry** ([@SANATANI_BACHA](https://t.me/SANATANI_BACCHA))
+
+---
+
+## 🚀 Deploy to Heroku
+
+[![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/SIDHIMUSIC/trryfreetg)
+
+> Button dabao → ENV variables bharo → Deploy. Bas!
 
 ---
 
@@ -25,13 +33,16 @@ HARRYCHATBOT/
 │   └── truth_dare.py
 ├── utils/
 │   └── auto_loader.py   ← Auto load system
+├── app.json             ← Heroku config
+├── Procfile
+├── runtime.txt
 ├── requirements.txt
 └── .env.example
 ```
 
 ---
 
-## 🚀 How to add NEW feature (Auto Load)
+## 🔥 How to add NEW feature (Auto Load)
 
 1. `tools/` folder me naya file banao, e.g. `tools/joke.py`
 2. Usme function + `register(app)` likho:
@@ -46,12 +57,12 @@ def register(app):
     app.add_handler(CommandHandler("joke", joke))
 ```
 
-3. Bot restart karo — **automatic load** ho jayega.  
+3. Bot restart → **automatic load**.  
    Manual `CommandHandler` main file me add karne ki **zarurat nahi**.
 
 ---
 
-## ⚙ Setup
+## ⚙ Manual Setup
 
 ```bash
 pip install -r requirements.txt
@@ -60,19 +71,50 @@ cp .env.example .env
 python HARRYCHATBOT.py
 ```
 
+### Required ENV
+
+| Variable | Description |
+|----------|-------------|
+| `TELEGRAM_BOT_TOKEN` | @BotFather se token |
+| `OPENROUTER_API_KEY` | openrouter.ai se key |
+| `MONGODB_URI` | MongoDB connection string |
+| `OWNER_ID` | Tumhara Telegram user ID |
+
 ---
 
 ## ✨ Features
 
-- Modular architecture
+- Modular professional architecture
 - Auto-load tools system
-- AI chat + MongoDB fallback
+- AI chat + MongoDB offline fallback
 - Stickers on keywords
-- Memory system (`/teach`)
-- Group moderation
-- Owner dashboard
-- Clean professional code
+- Memory system
+- Owner dashboard & broadcast
+- Group-ready
+- One-click Heroku deploy
 
 ---
 
-© 2026 Harry • MIT License
+## ☁ Other Deploy Options
+
+### Railway
+1. New Project → Deploy from GitHub
+2. ENV variables add karo
+3. Start command: `python HARRYCHATBOT.py`
+
+### Render
+1. Web Service / Background Worker
+2. Build: `pip install -r requirements.txt`
+3. Start: `python HARRYCHATBOT.py`
+
+---
+
+## 👨‍💻 Developer
+
+**Harry** · [@SANATANI_BACHA](https://t.me/SANATANI_BACHA)
+
+⭐ Star this repo if you like it.
+
+---
+
+© 2026 Harry · MIT License
