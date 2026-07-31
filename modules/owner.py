@@ -11,11 +11,11 @@ import asyncio
 # Yahan apni custom emoji ID daalo (khali = normal emoji)
 PE = {
     "crown": "6026292029179301727",     # example: "5368324170671202286"
-    "star": "",
-    "fire": "",
-    "heart": "",
-    "owner": "",
-    "support": "",
+    "star": "6026162407066309019",
+    "fire": "6321353301707203203",
+    "heart": "6267140231632262769",
+    "owner": "6147603715462271535",
+    "support": "6145175650190759830",
 }
 
 
