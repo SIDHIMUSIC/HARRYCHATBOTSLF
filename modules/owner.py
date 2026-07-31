@@ -10,7 +10,7 @@ import asyncio
 # ================= PREMIUM EMOJI =================
 # Yahan apni custom emoji ID daalo (khali = normal emoji)
 PE = {
-    "crown": "",     # example: "5368324170671202286"
+    "crown": "6026292029179301727",     # example: "5368324170671202286"
     "star": "",
     "fire": "",
     "heart": "",
