@@ -7,21 +7,55 @@ import time
 import asyncio
 
 
+# ================= PREMIUM EMOJI =================
+# Yahan apni custom emoji ID daalo (khali = normal emoji)
+PE = {
+    "crown": "",     # example: "5368324170671202286"
+    "star": "",
+    "fire": "",
+    "heart": "",
+    "owner": "",
+    "support": "",
+}
+
+
+def pe(name: str, fallback: str = "✨") -> str:
+    """Premium try → fail/empty to normal emoji. parse_mode=HTML ke saath use karo."""
+    eid = (PE.get(name) or "").strip()
+    if not eid:
+        return fallback
+    if not eid.isdigit():
+        return fallback
+    return f'<tg-emoji emoji-id="{eid}">{fallback}</tg-emoji>'
+
+
+def pe_works(name: str) -> bool:
+    """Check: is name ki premium ID set hai aur valid lagti hai?"""
+    eid = (PE.get(name) or "").strip()
+    return bool(eid and eid.isdigit())
+
+
 async def owner_info(update, context):
     owner_name = "𓆩◕🇭𝐀𝐑𝐑𝐘◕𓆪 =‌𐏓 ⤨⃝🇮🇳™"
     owner_username = "SANATANI_BACHA"
 
+    # Premium try + fallback
+    crown = pe("crown", "👑")
+    star = pe("star", "✨")
+    fire = pe("fire", "🚀")
+    heart = pe("heart", "💎")
+
     text = (
-        "<b>👑 ʙᴏᴛ ᴏᴡɴᴇʀ ᴘʀᴏғɪʟᴇ✨</b>\n"
+        f"<b>{crown} ʙᴏᴛ ᴏᴡɴᴇʀ ᴘʀᴏғɪʟᴇ{star}</b>\n"
         "━━━━━━━━━━━━━━━━━━\n\n"
-        "✨ ᴛʜɪs ɪɴᴛᴇʟʟɪɢᴇɴᴛ ᴀɪ ʙᴏᴛ ɪs ᴘʀᴏᴜᴅʟʏ ᴄʀᴀғᴛᴇᴅ,\n"
+        f"{star} ᴛʜɪs ɪɴᴛᴇʟʟɪɢᴇɴᴛ ᴀɪ ʙᴏᴛ ɪs ᴘʀᴏᴜᴅʟʏ ᴄʀᴀғᴛᴇᴅ,\n"
         "ᴏᴡɴᴇᴅ ᴀɴᴅ ᴍᴀɴᴀɢᴇᴅ ʙʏ\n\n"
         f"👤 <b><a href='https://t.me/{owner_username}'>{owner_name}</a></b>\n"
         f"🔗 @{owner_username}\n\n"
-        "🚀 ᴀ ᴘᴀssɪᴏɴᴀᴛᴇ ᴅᴇᴠᴇʟᴏᴘᴇʀ & ᴛᴇᴄʜ ᴇɴᴛʜᴜsɪᴀsᴛ\n"
+        f"{fire} ᴀ ᴘᴀssɪᴏɴᴀᴛᴇ ᴅᴇᴠᴇʟᴏᴘᴇʀ & ᴛᴇᴄʜ ᴇɴᴛʜᴜsɪᴀsᴛ\n"
         "• sᴍᴀʀᴛ ᴀᴜᴛᴏᴍᴀᴛɪᴏɴ 🤖\n"
         "• sᴇᴄᴜʀᴇ sʏsᴛᴇᴍs 🔐\n"
-        "• sᴍᴏᴏᴛʜ ᴜsᴇʀ ᴇxᴘᴇʀɪᴇɴᴄᴇ 💎\n\n"
+        f"• sᴍᴏᴏᴛʜ ᴜsᴇʀ ᴇxᴘᴇʀɪᴇɴᴄᴇ {heart}\n\n"
         "💡 ᴠɪsɪᴏɴ\n"
         "ᴄʀᴇᴀᴛɪɴɢ ᴘᴏᴡᴇʀғᴜʟ, ʀᴇʟɪᴀʙʟᴇ ᴀɴᴅ\n"
         "ᴜsᴇʀ-ғʀɪᴇɴᴅʟʏ ᴀɪ ʙᴏᴛs\n"
@@ -29,9 +63,13 @@ async def owner_info(update, context):
         "👇 ᴄᴏɴɴᴇᴄᴛ & sᴛᴀʏ ᴜᴘᴅᴀᴛᴇᴅ"
     )
 
+    # Button text — premium ID ho to try, warna normal
+    owner_btn = f"{pe('owner', '❍')} 𝐎ᴡɴᴇʀ {pe('owner', '❍')}"
+    support_btn = f"{pe('support', '❍')} Support Channel {pe('support', '❍')}"
+
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("❍ 𝐎ᴡɴᴇʀ ❍", url=f"https://t.me/{owner_username}")],
-        [InlineKeyboardButton("❍ Support Channel ❍", url=SUPPORT_CHANNEL)],
+        [InlineKeyboardButton(owner_btn, url=f"https://t.me/{owner_username}")],
+        [InlineKeyboardButton(support_btn, url=SUPPORT_CHANNEL)],
     ])
 
     chat_id = update.effective_chat.id
@@ -100,8 +138,24 @@ async def id_cmd(update, context):
     await update.message.reply_text(text, parse_mode="Markdown")
 
 
+async def pe_status(update, context):
+    """Check kaunsi premium ID set hai / kaam karegi"""
+    if not is_owner(update.effective_user.id):
+        return await update.message.reply_text("❌ Owner only")
+
+    lines = ["🔍 <b>Premium Emoji Status</b>\n"]
+    for name, eid in PE.items():
+        ok = pe_works(name)
+        status = "✅ READY" if ok else "❌ OFF (normal emoji)"
+        show = eid if eid else "—"
+        lines.append(f"• <b>{name}</b>: {status}\n  <code>{show}</code>")
+
+    await update.message.reply_text("\n".join(lines), parse_mode="HTML")
+
+
 def register(app):
     app.add_handler(CommandHandler("owner", owner_info))
     app.add_handler(CommandHandler("stats", stats))
     app.add_handler(CommandHandler("broadcast", broadcast))
     app.add_handler(CommandHandler("id", id_cmd))
+    app.add_handler(CommandHandler("pestatus", pe_status))
