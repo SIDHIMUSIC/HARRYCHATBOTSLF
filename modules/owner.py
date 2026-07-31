@@ -8,9 +8,8 @@ import asyncio
 
 
 # ================= PREMIUM EMOJI =================
-# Yahan apni custom emoji ID daalo (khali = normal emoji)
 PE = {
-    "crown": "6026292029179301727",     # example: "5368324170671202286"
+    "crown": "6026292029179301727",
     "star": "6026162407066309019",
     "fire": "6321353301707203203",
     "heart": "6267140231632262769",
@@ -20,26 +19,45 @@ PE = {
 
 
 def pe(name: str, fallback: str = "✨") -> str:
-    """Premium try → fail/empty to normal emoji. parse_mode=HTML ke saath use karo."""
+    """Message text ke liye — parse_mode=HTML ke saath."""
     eid = (PE.get(name) or "").strip()
-    if not eid:
-        return fallback
-    if not eid.isdigit():
+    if not eid or not eid.isdigit():
         return fallback
     return f'<tg-emoji emoji-id="{eid}">{fallback}</tg-emoji>'
 
 
 def pe_works(name: str) -> bool:
-    """Check: is name ki premium ID set hai aur valid lagti hai?"""
     eid = (PE.get(name) or "").strip()
     return bool(eid and eid.isdigit())
+
+
+def make_btn(text: str, url: str = None, callback_data: str = None, pe_name: str = None):
+    """
+    Button banata hai.
+    - text: plain text only (HTML mat daalo)
+    - pe_name: PE dict ka key → icon_custom_emoji_id try
+    """
+    kwargs = {"text": text}
+    if url:
+        kwargs["url"] = url
+    if callback_data:
+        kwargs["callback_data"] = callback_data
+
+    if pe_name and pe_works(pe_name):
+        kwargs["icon_custom_emoji_id"] = PE[pe_name].strip()
+
+    try:
+        return InlineKeyboardButton(**kwargs)
+    except TypeError:
+        # Purani library me icon_custom_emoji_id nahi → plain button
+        kwargs.pop("icon_custom_emoji_id", None)
+        return InlineKeyboardButton(**kwargs)
 
 
 async def owner_info(update, context):
     owner_name = "𓆩◕🇭𝐀𝐑𝐑𝐘◕𓆪 =‌𐏓 ⤨⃝🇮🇳™"
     owner_username = "SANATANI_BACHA"
 
-    # Premium try + fallback
     crown = pe("crown", "👑")
     star = pe("star", "✨")
     fire = pe("fire", "🚀")
@@ -63,13 +81,10 @@ async def owner_info(update, context):
         "👇 ᴄᴏɴɴᴇᴄᴛ & sᴛᴀʏ ᴜᴘᴅᴀᴛᴇᴅ"
     )
 
-    # Button text — premium ID ho to try, warna normal
-    owner_btn = f"{pe('owner', '❍')} 𝐎ᴡɴᴇʀ {pe('owner', '❍')}"
-    support_btn = f"{pe('support', '❍')} Support Channel {pe('support', '❍')}"
-
+    # ✅ Buttons — plain text only (HTML nahi)
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton(owner_btn, url=f"https://t.me/{owner_username}")],
-        [InlineKeyboardButton(support_btn, url=SUPPORT_CHANNEL)],
+        [make_btn("❍ 𝐎ᴡɴᴇʀ ❍", url=f"https://t.me/{owner_username}", pe_name="owner")],
+        [make_btn("❍ Support Channel ❍", url=SUPPORT_CHANNEL, pe_name="support")],
     ])
 
     chat_id = update.effective_chat.id
@@ -139,7 +154,6 @@ async def id_cmd(update, context):
 
 
 async def pe_status(update, context):
-    """Check kaunsi premium ID set hai / kaam karegi"""
     if not is_owner(update.effective_user.id):
         return await update.message.reply_text("❌ Owner only")
 
