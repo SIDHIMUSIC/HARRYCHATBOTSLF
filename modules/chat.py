@@ -41,7 +41,7 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if is_bot_banned(user.id):
         return
 
-    # Group check (business messages mostly private hote hain)
+    # Group check
     if message.chat.type != "private":
         mentioned = f"@{BOT_USERNAME.lower()}" in lower_text
         nickname_called = any(nick in lower_text for nick in BOT_NICKNAMES)
@@ -100,16 +100,33 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     name = user.first_name or "Friend"
     final_reply = f"*{name}*,\n{reply.strip()}"
 
-    # Typing + Reply
+    # Typing
     chat_id = message.chat.id
-    await context.bot.send_chat_action(chat_id, "typing")
-    await asyncio.sleep(0.3)
+    try:
+        await context.bot.send_chat_action(chat_id, "typing")
+        await asyncio.sleep(0.3)
+    except Exception:
+        pass
 
-    await message.reply_text(
-        final_reply,
-        parse_mode="Markdown",
-        reply_to_message_id=message.message_id,
-    )
+    # ========== SAFE REPLY (Secretary Mode Fix) ==========
+    try:
+        # Pehle normal reply try karo
+        await message.reply_text(
+            final_reply,
+            parse_mode="Markdown"
+        )
+    except Exception as e:
+        print("Reply error:", e)
+        # Fallback for business mode
+        try:
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=final_reply,
+                parse_mode="Markdown",
+                business_connection_id=getattr(message, "business_connection_id", None)
+            )
+        except Exception as e2:
+            print("Fallback reply error:", e2)
 
     # Sticker logic
     try:
@@ -144,8 +161,8 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 def register(app):
-    # Normal private + groups
+    # Normal messages
     app.add_handler(MessageHandler(filters.TEXT & \~filters.COMMAND, chat))
     
-    # Secretary Mode / Chat Automation support
+    # Secretary Mode support
     app.add_handler(MessageHandler(filters.UpdateType.BUSINESS_MESSAGE & filters.TEXT, chat))
