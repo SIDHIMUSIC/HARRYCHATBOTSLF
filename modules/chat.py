@@ -17,6 +17,17 @@ except ImportError:
         return ""
 
 
+async def chatgpt_typing(update, context, text):
+    chat_id = update.effective_chat.id
+    await context.bot.send_chat_action(chat_id, "typing")
+    await asyncio.sleep(0.3)
+    await update.message.reply_text(
+        text,
+        parse_mode="Markdown",
+        reply_to_message_id=update.message.message_id,
+    )
+
+
 async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text:
         return
@@ -90,24 +101,14 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if "dikkat aa rahi hai" in reply or "AI busy" in reply or "try karo" in reply:
         reply = get_fallback_reply(user.id, text, user.first_name or "Friend")
 
-    if len(reply) > 4000:
-        reply = reply[:4000]
+    MAX_LEN = 4000
+    if len(reply) > MAX_LEN:
+        reply = reply[:MAX_LEN]
 
     name = user.first_name or "Friend"
     final_reply = f"*{name}*,\n{reply.strip()}"
 
-    # Typing
-    try:
-        await context.bot.send_chat_action(update.effective_chat.id, "typing")
-        await asyncio.sleep(0.3)
-    except:
-        pass
-
-    await update.message.reply_text(
-        final_reply,
-        parse_mode="Markdown",
-        reply_to_message_id=update.message.message_id,
-    )
+    await chatgpt_typing(update, context, final_reply)
 
     # Sticker logic
     try:
@@ -142,4 +143,4 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 def register(app):
-    app.add_handler(MessageHandler(filters.TEXT & \~filters.COMMAND, chat))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat))
