@@ -17,23 +17,15 @@ except ImportError:
         return ""
 
 
-async def chatgpt_typing(update, context, text):
-    chat_id = update.effective_chat.id
-    await context.bot.send_chat_action(chat_id, "typing")
-    await asyncio.sleep(0.3)
-    await update.message.reply_text(
-        text,
-        parse_mode="Markdown",
-        reply_to_message_id=update.message.message_id,
-    )
-
-
 async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message or not update.message.text:
+    message = update.business_message or update.message
+    if not message or not message.text:
         return
 
-    user = update.effective_user
-    text = update.message.text
+    print("🔥 MESSAGE RECEIVED:", message.text, flush=True)
+
+    user = message.from_user
+    text = message.text
     lower_text = text.lower()
 
     tz = pytz.timezone("Asia/Kolkata")
@@ -42,21 +34,19 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     REAL_DAY = now.strftime("%A")
 
     if "date" in lower_text:
-        await update.message.reply_text(
-            f"📅 Aaj ki date hai {REAL_DATE}\n📆 Aaj {REAL_DAY} hai 😊"
-        )
+        await send_reply(context, message, f"📅 Aaj ki date hai {REAL_DATE}\n📆 Aaj {REAL_DAY} hai 😊")
         return
 
     if is_bot_banned(user.id):
         return
 
-    if update.effective_chat.type != "private":
+    if message.chat.type != "private":
         mentioned = f"@{BOT_USERNAME.lower()}" in lower_text
         nickname_called = any(nick in lower_text for nick in BOT_NICKNAMES)
         replied_to_bot = (
-            update.message.reply_to_message
-            and update.message.reply_to_message.from_user
-            and update.message.reply_to_message.from_user.is_bot
+            message.reply_to_message
+            and message.reply_to_message.from_user
+            and message.reply_to_message.from_user.is_bot
         )
         if not mentioned and not nickname_called and not replied_to_bot:
             return
@@ -101,16 +91,20 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if "dikkat aa rahi hai" in reply or "AI busy" in reply or "try karo" in reply:
         reply = get_fallback_reply(user.id, text, user.first_name or "Friend")
 
-    MAX_LEN = 4000
-    if len(reply) > MAX_LEN:
-        reply = reply[:MAX_LEN]
+    if len(reply) > 4000:
+        reply = reply[:4000]
 
     name = user.first_name or "Friend"
     final_reply = f"*{name}*,\n{reply.strip()}"
 
-    await chatgpt_typing(update, context, final_reply)
+    try:
+        await context.bot.send_chat_action(message.chat.id, "typing")
+        await asyncio.sleep(0.4)
+    except:
+        pass
 
-    # Sticker logic
+    await send_reply(context, message, final_reply)
+
     try:
         sticker_to_send = None
         lower = text.lower()
@@ -129,11 +123,12 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if sticker_to_send:
             await context.bot.send_sticker(
-                chat_id=update.effective_chat.id,
+                chat_id=message.chat.id,
                 sticker=sticker_to_send,
+                business_connection_id=getattr(message, "business_connection_id", None)
             )
     except Exception as e:
-        print("Sticker error:", e)
+        print("Sticker error:", e, flush=True)
 
     chat_logs.insert_one({
         "user_id": user.id,
@@ -142,5 +137,19 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     })
 
 
+async def send_reply(context, message, text):
+    try:
+        await context.bot.send_message(
+            chat_id=message.chat.id,
+            text=text,
+            parse_mode="Markdown",
+            business_connection_id=getattr(message, "business_connection_id", None)
+        )
+        print("✅ Reply sent successfully", flush=True)
+    except Exception as e:
+        print("❌ Reply failed:", e, flush=True)
+
+
 def register(app):
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat))
+    app.add_handler(MessageHandler(filters.TEXT & \~filters.COMMAND, chat))
+    app.add_handler(MessageHandler(filters.UpdateType.BUSINESS_MESSAGE & filters.TEXT, chat))
