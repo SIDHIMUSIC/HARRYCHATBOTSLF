@@ -4,15 +4,22 @@ from telegram.ext import ContextTypes, MessageHandler, filters
 from config import OWNER_ID
 from helpers import safe_ai, users, chat_logs
 
+# ================= CONFIG =================
+# Yahan apna Group Chat ID daalna (jaise -100xxxxxxxxxx)
+BUSINESS_GROUP_ID = -1004294248635   # ← Yahan apna GC ID daalna
+
+# Owner ka username (tag ke liye)
+OWNER_USERNAME = "SANATANI_BACCHA"
+
 
 async def business_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.business_message
-    if not message or not message.text:
+    if not message:
         return
 
     user = message.from_user
-    text = message.text.strip()
-    lower_text = text.lower()
+    text = message.text.strip() if message.text else ""
+    lower_text = text.lower() if text else ""
 
     # User save
     users.update_one(
@@ -25,37 +32,50 @@ async def business_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         upsert=True,
     )
 
-    # ================= PROFESSIONAL SYSTEM PROMPT =================
-    system = f"""You are a highly professional executive assistant working for a reputed organization.
+    # ================= CHECK IF FIRST MESSAGE =================
+    # Agar user pehle kabhi baat nahi kiya toh introduction do
+    is_first = not chat_logs.find_one({"user_id": user.id, "type": "business"})
 
-Your communication style:
-- Extremely professional, polite and clear
-- Use clean Hinglish (formal tone)
-- Keep replies short and precise (maximum 3-4 lines)
-- No casual language, no jokes, no unnecessary emojis
-- Sound like a senior executive assistant of a large company
+    if is_first or lower_text in ["hi", "hello", "hey", "namaste", "hii"]:
+        intro = (
+            f"Good day {user.first_name},\n\n"
+            f"Harry Sir is currently busy with some important work and resting 💤\n\n"
+            f"I am his personal assistant. Please let me know how I can help you."
+        )
+        try:
+            await context.bot.send_message(
+                chat_id=message.chat.id,
+                text=intro,
+                business_connection_id=message.business_connection_id
+            )
+        except Exception as e:
+            print("Intro error:", e)
+        return
 
-Guidelines:
-- If the user talks about work, promotion, meeting, project, payment, investigation or any business matter → reply with high professionalism.
-- If you need more details, ask politely and clearly.
-- If you don't have exact information, say: "I will check this and update you shortly."
-- Never sound friendly in a casual way.
-- Never use words like "yaar", "bhai", "mast", "op" etc.
+    # ================= PROFESSIONAL REPLY =================
+    system = f"""You are a highly professional personal assistant of Harry Sir.
 
-User's name: {user.first_name}
+Rules:
+- Always reply in clean and formal Hinglish.
+- Be extremely professional and polite.
+- Keep reply short (maximum 3 lines).
+- No jokes, no casual words like yaar, bhai, mast, op.
+- If user asks for promotion, slot, work, editing, or any service → reply professionally and say you will inform Harry Sir.
+- Never say you are an AI.
+
+User name: {user.first_name}
 """
 
-    reply = safe_ai([
-        {"role": "system", "content": system},
-        {"role": "user", "content": text},
-    ])
+    if text:
+        reply = safe_ai([
+            {"role": "system", "content": system},
+            {"role": "user", "content": text},
+        ])
+        final_reply = reply.strip()[:3000]
+    else:
+        final_reply = "Thank you. I have noted your message and will inform Harry Sir."
 
-    if len(reply) > 3500:
-        reply = reply[:3500]
-
-    final_reply = reply.strip()
-
-    # Send reply
+    # Send reply to user
     try:
         await context.bot.send_message(
             chat_id=message.chat.id,
@@ -65,28 +85,50 @@ User's name: {user.first_name}
     except Exception as e:
         print("Business reply error:", e)
 
-    # ================= OWNER NOTIFICATION =================
+    # ================= FORWARD TO GROUP + TAG OWNER =================
     important_keywords = [
-        "promotion", "promo", "slot", "meeting", "kaam", "work",
-        "payment", "paisa", "investigation", "enquiry", "business",
-        "deal", "project", "client", "urgent", "important", "collab"
+        "promotion", "promo", "slot", "edit", "name", "photo", "pic",
+        "poster", "thumbnail", "work", "kaam", "meeting", "payment",
+        "deal", "project", "urgent", "important", "collab"
     ]
 
-    if any(word in lower_text for word in important_keywords):
+    has_media = bool(message.photo or message.document or message.video)
+    is_important = any(word in lower_text for word in important_keywords) or has_media
+
+    if is_important:
         try:
-            notify = (
-                f"🔔 *Business Message Alert*\n\n"
-                f"👤 From: {user.first_name} (`{user.id}`)\n"
-                f"💬 Message:\n{text}\n\n"
-                f"✅ Bot ne professional reply de diya hai."
+            # Text message to group
+            caption = (
+                f"🔔 *New Business Request*\n\n"
+                f"👤 From: [{user.first_name}](tg://user?id={user.id})\n"
+                f"🆔 `{user.id}`\n"
+                f"💬 Message: {text or 'Media received'}\n\n"
+                f"@{OWNER_USERNAME}"
             )
-            await context.bot.send_message(
-                chat_id=OWNER_ID,
-                text=notify,
-                parse_mode="Markdown"
-            )
+
+            if message.photo:
+                await context.bot.send_photo(
+                    chat_id=BUSINESS_GROUP_ID,
+                    photo=message.photo[-1].file_id,
+                    caption=caption,
+                    parse_mode="Markdown"
+                )
+            elif message.document:
+                await context.bot.send_document(
+                    chat_id=BUSINESS_GROUP_ID,
+                    document=message.document.file_id,
+                    caption=caption,
+                    parse_mode="Markdown"
+                )
+            else:
+                await context.bot.send_message(
+                    chat_id=BUSINESS_GROUP_ID,
+                    text=caption,
+                    parse_mode="Markdown"
+                )
+
         except Exception as e:
-            print("Owner notify error:", e)
+            print("Group forward error:", e)
 
     # Log
     chat_logs.insert_one({
@@ -99,6 +141,6 @@ User's name: {user.first_name}
 
 def register(app):
     app.add_handler(MessageHandler(
-        filters.UpdateType.BUSINESS_MESSAGE & filters.TEXT,
+        filters.UpdateType.BUSINESS_MESSAGE,
         business_chat
     ))
