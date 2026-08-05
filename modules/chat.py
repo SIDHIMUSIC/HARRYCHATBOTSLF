@@ -17,23 +17,14 @@ except ImportError:
         return ""
 
 
-async def chatgpt_typing(update, context, text):
-    chat_id = update.effective_chat.id
-    await context.bot.send_chat_action(chat_id, "typing")
-    await asyncio.sleep(0.3)
-    await update.message.reply_text(
-        text,
-        parse_mode="Markdown",
-        reply_to_message_id=update.message.message_id,
-    )
-
-
 async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message or not update.message.text:
+    # ========== SECRETARY MODE + NORMAL MESSAGE SUPPORT ==========
+    message = update.business_message or update.message
+    if not message or not message.text:
         return
 
-    user = update.effective_user
-    text = update.message.text
+    user = message.from_user
+    text = message.text
     lower_text = text.lower()
 
     tz = pytz.timezone("Asia/Kolkata")
@@ -42,7 +33,7 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     REAL_DAY = now.strftime("%A")
 
     if "date" in lower_text:
-        await update.message.reply_text(
+        await message.reply_text(
             f"📅 Aaj ki date hai {REAL_DATE}\n📆 Aaj {REAL_DAY} hai 😊"
         )
         return
@@ -50,13 +41,14 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if is_bot_banned(user.id):
         return
 
-    if update.effective_chat.type != "private":
+    # Group check (business messages mostly private hote hain)
+    if message.chat.type != "private":
         mentioned = f"@{BOT_USERNAME.lower()}" in lower_text
         nickname_called = any(nick in lower_text for nick in BOT_NICKNAMES)
         replied_to_bot = (
-            update.message.reply_to_message
-            and update.message.reply_to_message.from_user
-            and update.message.reply_to_message.from_user.is_bot
+            message.reply_to_message
+            and message.reply_to_message.from_user
+            and message.reply_to_message.from_user.is_bot
         )
         if not mentioned and not nickname_called and not replied_to_bot:
             return
@@ -108,7 +100,16 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     name = user.first_name or "Friend"
     final_reply = f"*{name}*,\n{reply.strip()}"
 
-    await chatgpt_typing(update, context, final_reply)
+    # Typing + Reply
+    chat_id = message.chat.id
+    await context.bot.send_chat_action(chat_id, "typing")
+    await asyncio.sleep(0.3)
+
+    await message.reply_text(
+        final_reply,
+        parse_mode="Markdown",
+        reply_to_message_id=message.message_id,
+    )
 
     # Sticker logic
     try:
@@ -129,7 +130,7 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if sticker_to_send:
             await context.bot.send_sticker(
-                chat_id=update.effective_chat.id,
+                chat_id=chat_id,
                 sticker=sticker_to_send,
             )
     except Exception as e:
@@ -143,4 +144,8 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 def register(app):
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat))
+    # Normal private + groups
+    app.add_handler(MessageHandler(filters.TEXT & \~filters.COMMAND, chat))
+    
+    # Secretary Mode / Chat Automation support
+    app.add_handler(MessageHandler(filters.UpdateType.BUSINESS_MESSAGE & filters.TEXT, chat))
