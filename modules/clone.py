@@ -11,12 +11,22 @@ from helpers.decorators import is_owner
 WAITING_TOKEN = 1
 
 
-async def clone_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def clone_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+
+    # Agar command ke saath token diya hai
+    if context.args:
+        token = context.args[0].strip()
+        return await process_token(update, context, token)
+
+    # Agar sirf /clone likha hai
     await update.message.reply_text(
         "🤖 **Clone Your Bot**\n\n"
         "Apna Bot Token bhejo (@BotFather se milta hai)\n\n"
         "Example:\n`123456789:AAHxxxx...`\n\n"
-        "Cancel karne ke liye /cancel likho.",
+        "Ya direct aise bhi bhej sakte ho:\n"
+        "`/clone 123456789:AAHxxxx...`\n\n"
+        "Cancel ke liye /cancel likho.",
         parse_mode="Markdown"
     )
     return WAITING_TOKEN
@@ -24,6 +34,10 @@ async def clone_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def clone_receive_token(update: Update, context: ContextTypes.DEFAULT_TYPE):
     token = update.message.text.strip()
+    return await process_token(update, context, token)
+
+
+async def process_token(update: Update, context: ContextTypes.DEFAULT_TYPE, token: str):
     user = update.effective_user
 
     try:
@@ -54,7 +68,7 @@ async def clone_receive_token(update: Update, context: ContextTypes.DEFAULT_TYPE
             parse_mode="Markdown"
         )
 
-        # Notify Main Owner
+        # Notify Owner
         try:
             await context.bot.send_message(
                 OWNER_ID,
@@ -69,7 +83,7 @@ async def clone_receive_token(update: Update, context: ContextTypes.DEFAULT_TYPE
             pass
 
     except Exception as e:
-        await update.message.reply_text(f"❌ Error occurred: {e}")
+        await update.message.reply_text(f"❌ Error: {e}")
 
     return ConversationHandler.END
 
@@ -114,10 +128,7 @@ async def all_clones(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def del_clone(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
-        return await update.message.reply_text(
-            "Usage: `/delclone bot_id`",
-            parse_mode="Markdown"
-        )
+        return await update.message.reply_text("Usage: `/delclone bot_id`", parse_mode="Markdown")
 
     try:
         bot_id = int(context.args[0])
@@ -130,7 +141,6 @@ async def del_clone(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user_id = update.effective_user.id
 
-    # Permission check
     if user_id != OWNER_ID and clone.get("owner_id") != user_id:
         return await update.message.reply_text("❌ Aap is clone ko delete nahi kar sakte.")
 
@@ -140,13 +150,13 @@ async def del_clone(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def register(app):
     conv = ConversationHandler(
-        entry_points=[CommandHandler("clone", clone_start)],
+        entry_points=[CommandHandler("clone", clone_command)],
         states={
-            WAITING_TOKEN: [MessageHandler(filters.TEXT & ~filters.COMMAND, clone_receive_token)]
+            WAITING_TOKEN: [MessageHandler(filters.TEXT & \~filters.COMMAND, clone_receive_token)]
         },
         fallbacks=[CommandHandler("cancel", cancel_clone)],
     )
-    app.add_handler(conv)
+    app.add_handler(conv, group=0)
     app.add_handler(CommandHandler("myclones", my_clones))
     app.add_handler(CommandHandler("clones", all_clones))
     app.add_handler(CommandHandler("delclone", del_clone))
