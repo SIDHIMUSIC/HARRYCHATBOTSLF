@@ -18,10 +18,12 @@ except ImportError:
 
 
 async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # ========== SECRETARY MODE + NORMAL MESSAGE SUPPORT ==========
+    # ========== SECRETARY MODE + NORMAL ==========
     message = update.business_message or update.message
     if not message or not message.text:
         return
+
+    print("🔥 MESSAGE RECEIVED:", message.text)  # <-- yeh log dikhega Heroku pe
 
     user = message.from_user
     text = message.text
@@ -33,15 +35,12 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     REAL_DAY = now.strftime("%A")
 
     if "date" in lower_text:
-        await message.reply_text(
-            f"📅 Aaj ki date hai {REAL_DATE}\n📆 Aaj {REAL_DAY} hai 😊"
-        )
+        await send_reply(context, message, f"📅 Aaj ki date hai {REAL_DATE}\n📆 Aaj {REAL_DAY} hai 😊")
         return
 
     if is_bot_banned(user.id):
         return
 
-    # Group check
     if message.chat.type != "private":
         mentioned = f"@{BOT_USERNAME.lower()}" in lower_text
         nickname_called = any(nick in lower_text for nick in BOT_NICKNAMES)
@@ -93,42 +92,23 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if "dikkat aa rahi hai" in reply or "AI busy" in reply or "try karo" in reply:
         reply = get_fallback_reply(user.id, text, user.first_name or "Friend")
 
-    MAX_LEN = 4000
-    if len(reply) > MAX_LEN:
-        reply = reply[:MAX_LEN]
+    if len(reply) > 4000:
+        reply = reply[:4000]
 
     name = user.first_name or "Friend"
     final_reply = f"*{name}*,\n{reply.strip()}"
 
     # Typing
-    chat_id = message.chat.id
     try:
-        await context.bot.send_chat_action(chat_id, "typing")
-        await asyncio.sleep(0.3)
-    except Exception:
+        await context.bot.send_chat_action(message.chat.id, "typing")
+        await asyncio.sleep(0.4)
+    except:
         pass
 
-    # ========== SAFE REPLY (Secretary Mode Fix) ==========
-    try:
-        # Pehle normal reply try karo
-        await message.reply_text(
-            final_reply,
-            parse_mode="Markdown"
-        )
-    except Exception as e:
-        print("Reply error:", e)
-        # Fallback for business mode
-        try:
-            await context.bot.send_message(
-                chat_id=chat_id,
-                text=final_reply,
-                parse_mode="Markdown",
-                business_connection_id=getattr(message, "business_connection_id", None)
-            )
-        except Exception as e2:
-            print("Fallback reply error:", e2)
+    # ========== SAFE REPLY ==========
+    await send_reply(context, message, final_reply)
 
-    # Sticker logic
+    # Sticker
     try:
         sticker_to_send = None
         lower = text.lower()
@@ -147,8 +127,9 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if sticker_to_send:
             await context.bot.send_sticker(
-                chat_id=chat_id,
+                chat_id=message.chat.id,
                 sticker=sticker_to_send,
+                business_connection_id=getattr(message, "business_connection_id", None)
             )
     except Exception as e:
         print("Sticker error:", e)
@@ -160,9 +141,20 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     })
 
 
+async def send_reply(context, message, text):
+    """Safe reply for both normal + Secretary Mode"""
+    try:
+        await context.bot.send_message(
+            chat_id=message.chat.id,
+            text=text,
+            parse_mode="Markdown",
+            business_connection_id=getattr(message, "business_connection_id", None)
+        )
+        print("✅ Reply sent successfully")
+    except Exception as e:
+        print("❌ Reply failed:", e)
+
+
 def register(app):
-    # Normal messages
     app.add_handler(MessageHandler(filters.TEXT & \~filters.COMMAND, chat))
-    
-    # Secretary Mode support
     app.add_handler(MessageHandler(filters.UpdateType.BUSINESS_MESSAGE & filters.TEXT, chat))
