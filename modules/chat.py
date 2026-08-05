@@ -151,5 +151,5 @@ async def send_reply(context, message, text):
 
 
 def register(app):
-    app.add_handler(MessageHandler(filters.TEXT & \~filters.COMMAND, chat))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat))
     app.add_handler(MessageHandler(filters.UpdateType.BUSINESS_MESSAGE & filters.TEXT, chat))
