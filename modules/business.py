@@ -5,7 +5,7 @@ from config import OWNER_ID
 from helpers import safe_ai, users, chat_logs
 
 # ================= CONFIG =================
-BUSINESS_GROUP_ID = None          # ← Yahan apna Group ID daalna (jaise -100xxxxxxxxxx)
+BUSINESS_GROUP_ID =  -1004294248635         # ← Yahan apna Group ID daalna (jaise -100xxxxxxxxxx)
 OWNER_USERNAME = "SANATANI_BACHA"
 
 
