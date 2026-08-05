@@ -1,4 +1,3 @@
-
 import time
 from telegram import Update
 from telegram.ext import ContextTypes, MessageHandler, filters
@@ -6,7 +5,7 @@ from config import OWNER_ID
 from helpers import safe_ai, users, chat_logs
 
 # ================= CONFIG =================
-BUSINESS_GROUP_ID = -1004294248635          # ← Yahan apna Group ID daalna (jaise -100xxxxxxxxxx)
+BUSINESS_GROUP_ID = -1004294248635
 OWNER_USERNAME = "SANATANI_BACCHA"
 
 
@@ -16,14 +15,19 @@ async def business_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     user = message.from_user
-    text = message.text.strip() if message.text else ""
-    lower_text = text.lower() if text else ""
+    text = (message.text or message.caption or "").strip()
+    lower_text = text.lower()
     has_photo = bool(message.photo)
     has_document = bool(message.document)
+    has_link = "http" in lower_text or "t.me/" in lower_text
 
-    print(f"📩 Business msg from {user.first_name}: {text or '[Media]'}", flush=True)
+    print(f"📩 Business from {user.first_name}: {text or '[Media]'}", flush=True)
 
-    # Save user
+    # ========== USER DATA ==========
+    user_data = users.find_one({"user_id": user.id}) or {}
+    mode = user_data.get("biz_mode", "business")          # business / chatting
+    lang = user_data.get("biz_lang", "hinglish")           # hinglish / hindi
+
     users.update_one(
         {"user_id": user.id},
         {"$set": {
@@ -34,66 +38,118 @@ async def business_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         upsert=True,
     )
 
-    # ================= FIRST MESSAGE =================
+    # ========== MODE / LANGUAGE COMMANDS ==========
+    if lower_text in ["mode", "mood", "/mode"]:
+        await send_business_reply(context, message,
+            "Please choose mode:\n\n"
+            "1️⃣ Business Mode (Professional)\n"
+            "2️⃣ Chatting Mode (Friendly)\n\n"
+            "Reply with: `business` or `chatting`"
+        )
+        return
+
+    if lower_text in ["business", "biz"]:
+        users.update_one({"user_id": user.id}, {"$set": {"biz_mode": "business"}})
+        await send_business_reply(context, message, "✅ Switched to *Business Mode* (Professional)")
+        return
+
+    if lower_text in ["chatting", "chat", "friendly"]:
+        users.update_one({"user_id": user.id}, {"$set": {"biz_mode": "chatting"}})
+        await send_business_reply(context, message, "✅ Switched to *Chatting Mode* (Friendly)")
+        return
+
+    if lower_text in ["language", "lang", "/lang"]:
+        await send_business_reply(context, message,
+            "Please choose language:\n\n"
+            "1️⃣ Hinglish\n"
+            "2️⃣ Hindi\n\n"
+            "Reply with: `hinglish` or `hindi`"
+        )
+        return
+
+    if lower_text == "hindi":
+        users.update_one({"user_id": user.id}, {"$set": {"biz_lang": "hindi"}})
+        await send_business_reply(context, message, "✅ भाषा हिंदी में बदल दी गई है।")
+        return
+
+    if lower_text == "hinglish":
+        users.update_one({"user_id": user.id}, {"$set": {"biz_lang": "hinglish"}})
+        await send_business_reply(context, message, "✅ Language changed to Hinglish.")
+        return
+
+    # ========== FIRST MESSAGE ==========
     is_first = not chat_logs.find_one({"user_id": user.id, "type": "business"})
 
-    if is_first or lower_text in ["hi", "hello", "hey", "hii", "namaste", "good morning", "good evening"]:
-        intro = (
-            f"Good day {user.first_name},\n\n"
-            f"Harry Sir is currently occupied with some work and resting 💤\n\n"
-            f"I am his personal assistant. Please tell me how I can help you."
-        )
+    if is_first or lower_text in ["hi", "hello", "hey", "hii", "namaste"]:
+        if lang == "hindi":
+            intro = (
+                f"नमस्ते {user.first_name} जी,\n\n"
+                f"Harry Sir अभी कुछ महत्वपूर्ण काम में व्यस्त हैं 💤\n\n"
+                f"मैं उनका पर्सनल असिस्टेंट हूँ। कृपया बताएं मैं आपकी कैसे मदद कर सकता हूँ?\n\n"
+                f"(Mode बदलने के लिए `mode` लिखें)"
+            )
+        else:
+            intro = (
+                f"Good day {user.first_name},\n\n"
+                f"Harry Sir is currently busy with some work 💤\n\n"
+                f"I am his personal assistant. How can I help you?\n\n"
+                f"(Type `mode` to change mode)"
+            )
         await send_business_reply(context, message, intro)
         return
 
-    # ================= GENERATE REPLY =================
-    if has_photo or "edit" in lower_text or "name" in lower_text or "poster" in lower_text:
-        final_reply = (
-            f"Thank you {user.first_name}.\n\n"
-            f"I have received your request for editing. "
-            f"I will inform Harry Sir and get back to you shortly."
-        )
-    elif any(word in lower_text for word in ["promotion", "promo", "slot", "price", "rate"]):
-        final_reply = (
-            f"Thank you for your interest in promotion.\n\n"
-            f"I will check the available slots with Harry Sir and update you soon."
-        )
-    elif text:
-        system = f"""You are the professional personal assistant of Harry Sir.
-Reply in clean formal Hinglish.
-Keep it short (2-3 lines maximum).
-Be polite and professional.
-Never use casual words.
+    # ========== GENERATE REPLY ==========
+    is_important = has_photo or has_document or has_link or any(w in lower_text for w in [
+        "promotion", "promo", "slot", "edit", "name", "photo", "poster",
+        "thumbnail", "work", "kaam", "payment", "urgent", "important", "price", "rate"
+    ])
+
+    if mode == "chatting":
+        # Friendly mode
+        system = f"""You are a friendly assistant of Harry Sir.
+Reply in {'pure Hindi' if lang == 'hindi' else 'Hinglish'}.
+Be warm and helpful.
+Keep reply short.
 User name: {user.first_name}"""
-        try:
+    else:
+        # Business mode
+        system = f"""You are a highly professional personal assistant of Harry Sir.
+Reply in {'pure Hindi' if lang == 'hindi' else 'clean formal Hinglish'}.
+Be extremely professional and polite.
+Keep reply short (2-3 lines).
+No casual words.
+User name: {user.first_name}"""
+
+    try:
+        if text:
             reply = safe_ai([
                 {"role": "system", "content": system},
                 {"role": "user", "content": text}
             ])
             final_reply = reply.strip()[:2500]
-        except:
-            final_reply = "Thank you for your message. I will inform Harry Sir."
-    else:
-        final_reply = "Thank you. I have noted your message and will inform Harry Sir."
+        else:
+            final_reply = "Thank you. I have received your message." if lang != "hindi" else "धन्यवाद। आपका संदेश प्राप्त हो गया है।"
+    except:
+        final_reply = "Thank you. I will inform Harry Sir." if lang != "hindi" else "धन्यवाद। मैं Harry Sir को सूचित कर दूंगा।"
 
-    # Reply to user
+    # Important baat pe last mein add karo
+    if is_important:
+        if lang == "hindi":
+            final_reply += "\n\n✅ Harry Sir को सूचित कर दिया गया है।"
+        else:
+            final_reply += "\n\n✅ Harry Sir has been informed about this."
+
     await send_business_reply(context, message, final_reply)
 
-    # ================= FORWARD TO GROUP =================
-    important = has_photo or has_document or any(w in lower_text for w in [
-        "promotion", "promo", "slot", "edit", "name", "photo", "poster",
-        "thumbnail", "work", "kaam", "payment", "urgent", "important"
-    ])
-
-    if important and BUSINESS_GROUP_ID:
+    # ========== FORWARD TO GROUP ==========
+    if is_important and BUSINESS_GROUP_ID:
         try:
             safe_name = "".join(c for c in (user.first_name or "User") if c.isalnum() or c.isspace()) or "User"
-
             caption = (
                 f"🔔 New Work Request\n\n"
                 f"👤 From: {safe_name}\n"
                 f"🆔 {user.id}\n"
-                f"💬 {text or 'Media received'}\n\n"
+                f"💬 {text or 'Media / Link received'}\n\n"
                 f"@{OWNER_USERNAME}"
             )
 
