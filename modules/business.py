@@ -5,8 +5,8 @@ from config import OWNER_ID
 from helpers import safe_ai, users, chat_logs
 
 # ================= CONFIG =================
-BUSINESS_GROUP_ID = -1004294248635
-OWNER_USERNAME = "SANATANI_BACCHA"
+BUSINESS_GROUP_ID = None          # ← Yahan apna Group ID daalna (jaise -100xxxxxxxxxx)
+OWNER_USERNAME = "SANATANI_BACHA"
 
 
 async def business_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -15,88 +15,82 @@ async def business_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     user = message.from_user
-    text = (message.text or message.caption or "").strip()
-    lower_text = text.lower()
+    text = message.text.strip() if message.text else ""
+    lower_text = text.lower() if text else ""
     has_photo = bool(message.photo)
     has_document = bool(message.document)
 
-    print(f"📩 Business from {user.first_name}: {text or '[Media]'}", flush=True)
+    print(f"📩 Business msg from {user.first_name}: {text or '[Media]'}", flush=True)
 
     # Save user
-    try:
-        users.update_one(
-            {"user_id": user.id},
-            {"$set": {
-                "first_name": user.first_name,
-                "username": user.username,
-                "last_seen": time.time(),
-            }},
-            upsert=True,
-        )
-    except Exception as e:
-        print("DB Error:", e, flush=True)
+    users.update_one(
+        {"user_id": user.id},
+        {"$set": {
+            "first_name": user.first_name,
+            "username": user.username,
+            "last_seen": time.time(),
+        }},
+        upsert=True,
+    )
 
-    # ========== FIRST MESSAGE ==========
+    # ================= FIRST MESSAGE =================
     is_first = not chat_logs.find_one({"user_id": user.id, "type": "business"})
 
-    if is_first or lower_text in ["hi", "hello", "hey", "hii", "namaste", "hy", "hye"]:
+    if is_first or lower_text in ["hi", "hello", "hey", "hii", "namaste", "good morning", "good evening"]:
         intro = (
             f"Good day {user.first_name},\n\n"
-            f"Harry Sir is currently busy with some work 💤\n\n"
+            f"Harry Sir is currently occupied with some work and resting 💤\n\n"
             f"I am his personal assistant. Please tell me how I can help you."
         )
-        await send_reply(context, message, intro)
+        await send_business_reply(context, message, intro)
         return
 
-    # ========== REPLY LOGIC ==========
-    is_important = has_photo or has_document or any(w in lower_text for w in [
-        "promotion", "promo", "slot", "edit", "name", "photo", "poster",
-        "work", "kaam", "payment", "price", "rate", "link", "http"
-    ])
-
-    if has_photo or "edit" in lower_text:
+    # ================= GENERATE REPLY =================
+    if has_photo or "edit" in lower_text or "name" in lower_text or "poster" in lower_text:
         final_reply = (
             f"Thank you {user.first_name}.\n\n"
-            f"I have received your editing request.\n"
-            f"I will inform  Sir shortly."
+            f"I have received your request for editing. "
+            f"I will inform Harry Sir and get back to you shortly."
         )
-    elif any(w in lower_text for w in ["promotion", "promo", "slot", "price"]):
+    elif any(word in lower_text for word in ["promotion", "promo", "slot", "price", "rate"]):
         final_reply = (
             f"Thank you for your interest in promotion.\n\n"
-            f"I will check available slots with Harry Sir and update you soon."
+            f"I will check the available slots with Harry Sir and update you soon."
         )
     elif text:
-        try:
-            system = f"""You are professional personal assistant of Boss.
+        system = f"""You are the professional personal assistant of Harry Sir.
 Reply in clean formal Hinglish.
-Keep it short (2-3 lines).
-Be polite.
+Keep it short (2-3 lines maximum).
+Be polite and professional.
+Never use casual words.
 User name: {user.first_name}"""
+        try:
             reply = safe_ai([
                 {"role": "system", "content": system},
                 {"role": "user", "content": text}
             ])
-            final_reply = reply.strip()[:2000]
+            final_reply = reply.strip()[:2500]
         except:
-            final_reply = "Thank you for your message. I will inform  Sir."
+            final_reply = "Thank you for your message. I will inform Harry Sir."
     else:
-        final_reply = "Thank you. I have received your message."
+        final_reply = "Thank you. I have noted your message and will inform Harry Sir."
 
-    if is_important:
-        final_reply += "\n\n✅  Sir has been informed."
+    # Reply to user
+    await send_business_reply(context, message, final_reply)
 
-    await send_reply(context, message, final_reply)
+    # ================= FORWARD TO GROUP =================
+    important = has_photo or has_document or any(w in lower_text for w in [
+        "promotion", "promo", "slot", "edit", "name", "photo", "poster",
+        "thumbnail", "work", "kaam", "payment", "urgent", "important"
+    ])
 
-    # ========== FORWARD TO GROUP ==========
-    if is_important and BUSINESS_GROUP_ID:
+    if important and BUSINESS_GROUP_ID:
         try:
-            safe_name = "".join(c for c in (user.first_name or "User") if c.isalnum() or c.isspace())[:30] or "User"
-
             caption = (
-                f"🔔 New Work Request\n\n"
-                f"From: {safe_name}\n"
-                f"ID: {user.id}\n"
-                f"Message: {text or 'Media received'}\n\n"
+                f"🔔 *New Work Request*\n\n"
+                f"👤 From: [{user.first_name}](tg://user?id={user.id})\n"
+                f"🆔 `{user.id}`\n"
+                f"💬 {text or 'Media received'}\n\n"
                 f"@{OWNER_USERNAME}"
             )
 
@@ -104,36 +98,36 @@ User name: {user.first_name}"""
                 await context.bot.send_photo(
                     chat_id=BUSINESS_GROUP_ID,
                     photo=message.photo[-1].file_id,
-                    caption=caption
+                    caption=caption,
+                    parse_mode="Markdown"
                 )
             elif has_document:
                 await context.bot.send_document(
                     chat_id=BUSINESS_GROUP_ID,
                     document=message.document.file_id,
-                    caption=caption
+                    caption=caption,
+                    parse_mode="Markdown"
                 )
             else:
                 await context.bot.send_message(
                     chat_id=BUSINESS_GROUP_ID,
-                    text=caption
+                    text=caption,
+                    parse_mode="Markdown"
                 )
-            print("✅ Sent to group", flush=True)
+            print("✅ Forwarded to group", flush=True)
         except Exception as e:
-            print("❌ Group error:", e, flush=True)
+            print("❌ Group forward error:", e, flush=True)
 
     # Log
-    try:
-        chat_logs.insert_one({
-            "user_id": user.id,
-            "text": final_reply,
-            "type": "business",
-            "time": time.time(),
-        })
-    except:
-        pass
+    chat_logs.insert_one({
+        "user_id": user.id,
+        "text": final_reply,
+        "type": "business",
+        "time": time.time(),
+    })
 
 
-async def send_reply(context, message, text):
+async def send_business_reply(context, message, text):
     try:
         await context.bot.send_message(
             chat_id=message.chat.id,
