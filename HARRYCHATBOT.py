@@ -79,9 +79,19 @@ def main():
 \033[0m
 """)
 
+    # ========== IMPORTANT: Business Mode support ==========
     app.run_polling(
         drop_pending_updates=True,
-        allowed_updates=Update.ALL_TYPES,
+        allowed_updates=[
+            "message",
+            "edited_message",
+            "callback_query",
+            "inline_query",
+            "business_connection",
+            "business_message",
+            "edited_business_message",
+            "deleted_business_messages",
+        ],
         close_loop=False,
     )
 
