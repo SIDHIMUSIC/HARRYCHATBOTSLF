@@ -23,7 +23,7 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not message or not message.text:
         return
 
-    print("🔥 MESSAGE RECEIVED:", message.text)  # <-- yeh log dikhega Heroku pe
+    print("🔥 MESSAGE RECEIVED:", message.text)
 
     user = message.from_user
     text = message.text
@@ -156,5 +156,8 @@ async def send_reply(context, message, text):
 
 
 def register(app):
+    # Normal messages
     app.add_handler(MessageHandler(filters.TEXT & \~filters.COMMAND, chat))
+    
+    # Secretary Mode / Chat Automation
     app.add_handler(MessageHandler(filters.UpdateType.BUSINESS_MESSAGE & filters.TEXT, chat))
