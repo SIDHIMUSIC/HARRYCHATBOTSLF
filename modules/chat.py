@@ -1,5 +1,6 @@
 import time
 import asyncio
+import random
 from datetime import datetime
 import pytz
 from telegram import Update
@@ -15,6 +16,14 @@ try:
 except ImportError:
     def get_bot_extras(name):
         return ""
+
+try:
+    from helpers.learning import save_learned_reply, get_learned_reply
+except ImportError:
+    def save_learned_reply(*args, **kwargs):
+        pass
+    def get_learned_reply(*args, **kwargs):
+        return None
 
 
 async def chatgpt_typing(update, context, text):
@@ -71,6 +80,19 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         upsert=True,
     )
 
+    # ========== LEARNING: Save user reply ==========
+    try:
+        if (update.message.reply_to_message 
+            and update.message.reply_to_message.from_user 
+            and update.message.reply_to_message.from_user.is_bot):
+            
+            original = update.message.reply_to_message.text or ""
+            if original and text:
+                save_learned_reply(original, text, user.id)
+    except Exception as e:
+        print("Learning save error:", e)
+
+    # ========== REPLY GENERATION ==========
     if "joke" in lower_text or "funny" in lower_text:
         system = "Tell me a Hinglish joke with emojis."
     elif "shayari" in lower_text or "love" in lower_text or "sad" in lower_text:
@@ -93,17 +115,26 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     system += "\n(Instructions: User ke naam aur memory ka use karke friendly reply karo)"
     system += "\n\nImportant: Har reply me 2-4 relevant emojis zaroor use karo. Friendly aur expressive raho."
 
-    reply = safe_ai([
-        {"role": "system", "content": system},
-        {"role": "user", "content": text},
-    ])
+    # Pehle learned reply try karo (30% chance)
+    reply = None
+    try:
+        learned = get_learned_reply(text)
+        if learned and random.random() < 0.3:
+            reply = learned
+    except Exception:
+        pass
+
+    if not reply:
+        reply = safe_ai([
+            {"role": "system", "content": system},
+            {"role": "user", "content": text},
+        ])
 
     if "dikkat aa rahi hai" in reply or "AI busy" in reply or "try karo" in reply:
         reply = get_fallback_reply(user.id, text, user.first_name or "Friend")
 
-    MAX_LEN = 4000
-    if len(reply) > MAX_LEN:
-        reply = reply[:MAX_LEN]
+    if len(reply) > 4000:
+        reply = reply[:4000]
 
     name = user.first_name or "Friend"
     final_reply = f"*{name}*,\n{reply.strip()}"
