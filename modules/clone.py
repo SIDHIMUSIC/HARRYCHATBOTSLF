@@ -152,7 +152,7 @@ def register(app):
     conv = ConversationHandler(
         entry_points=[CommandHandler("clone", clone_command)],
         states={
-            WAITING_TOKEN: [MessageHandler(filters.TEXT & \~filters.COMMAND, clone_receive_token)]
+            WAITING_TOKEN: [MessageHandler(filters.TEXT & ~filters.COMMAND, clone_receive_token)]
         },
         fallbacks=[CommandHandler("cancel", cancel_clone)],
     )
