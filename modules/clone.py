@@ -16,12 +16,11 @@ async def clone_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if not context.args:
             await update.message.reply_text(
-                "🤖 **Clone Your Bot**\n\n"
+                "🤖 Clone Your Bot\n\n"
                 "Usage:\n"
-                "`/clone your_bot_token`\n\n"
+                "/clone your_bot_token\n\n"
                 "Example:\n"
-                "`/clone 123456789:AAHxxxx...`",
-                parse_mode="Markdown"
+                "/clone 123456789:AAHxxxx..."
             )
             return
 
@@ -52,11 +51,10 @@ async def clone_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         print("Clone saved successfully", flush=True)
 
         await update.message.reply_text(
-            f"✅ **Bot Cloned Successfully!**\n\n"
-            f"🤖 Name: {bot_name}\n"
-            f"🔗 @{bot_username}\n"
-            f"🆔 `{bot_id}`",
-            parse_mode="Markdown"
+            f"✅ Bot Cloned Successfully!\n\n"
+            f"Name: {bot_name}\n"
+            f"Username: @{bot_username}\n"
+            f"ID: {bot_id}"
         )
 
         # Notify owner
@@ -64,7 +62,7 @@ async def clone_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_message(
                 OWNER_ID,
                 f"🆕 New Clone\n\n"
-                f"User: {user.first_name} (`{user.id}`)\n"
+                f"User: {user.first_name} ({user.id})\n"
                 f"Bot: @{bot_username}"
             )
         except Exception as e:
@@ -72,7 +70,7 @@ async def clone_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         print(f"Clone error: {e}", flush=True)
-        await update.message.reply_text(f"❌ Error: `{e}`", parse_mode="Markdown")
+        await update.message.reply_text(f"❌ Error: {e}")
 
 
 async def my_clones(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -80,10 +78,10 @@ async def my_clones(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not clones_list:
         return await update.message.reply_text("Aapka koi cloned bot nahi hai.")
 
-    text = "🤖 **Aapke Cloned Bots:**\n\n"
+    text = "🤖 Aapke Cloned Bots:\n\n"
     for i, c in enumerate(clones_list, 1):
-        text += f"{i}. @{c.get('bot_username')} — `{c.get('bot_id')}`\n"
-    await update.message.reply_text(text, parse_mode="Markdown")
+        text += f"{i}. @{c.get('bot_username')} — {c.get('bot_id')}\n"
+    await update.message.reply_text(text)
 
 
 async def all_clones(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -94,15 +92,15 @@ async def all_clones(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not clones_list:
         return await update.message.reply_text("Koi clone nahi hai.")
 
-    text = f"🤖 **Total Clones: {len(clones_list)}**\n\n"
+    text = f"🤖 Total Clones: {len(clones_list)}\n\n"
     for i, c in enumerate(clones_list, 1):
-        text += f"{i}. @{c.get('bot_username')} | Owner: `{c.get('owner_id')}`\n"
-    await update.message.reply_text(text, parse_mode="Markdown")
+        text += f"{i}. @{c.get('bot_username')} | Owner: {c.get('owner_id')}\n"
+    await update.message.reply_text(text)
 
 
 async def del_clone(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
-        return await update.message.reply_text("Usage: `/delclone bot_id`", parse_mode="Markdown")
+        return await update.message.reply_text("Usage: /delclone bot_id")
 
     try:
         bot_id = int(context.args[0])
@@ -118,7 +116,7 @@ async def del_clone(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return await update.message.reply_text("❌ Aap is clone ko delete nahi kar sakte.")
 
     delete_clone(bot_id)
-    await update.message.reply_text(f"✅ Clone `{bot_id}` delete ho gaya.")
+    await update.message.reply_text(f"✅ Clone {bot_id} delete ho gaya.")
 
 
 def register(app):
