@@ -39,6 +39,7 @@ async def business_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     # ========== MODE / LANGUAGE COMMANDS ==========
+    # ========== MODE / LANGUAGE COMMANDS ==========
     if lower_text in ["mode", "mood", "/mode"]:
         await send_business_reply(context, message,
             "Please choose mode:\n\n"
@@ -50,15 +51,15 @@ async def business_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if lower_text in ["business", "biz"]:
         users.update_one({"user_id": user.id}, {"$set": {"biz_mode": "business"}})
-        await send_business_reply(context, message, "✅ Switched to *Business Mode* (Professional)")
+        await send_business_reply(context, message, "✅ Switched to Business Mode (Professional)")
         return
 
     if lower_text in ["chatting", "chat", "friendly"]:
         users.update_one({"user_id": user.id}, {"$set": {"biz_mode": "chatting"}})
-        await send_business_reply(context, message, "✅ Switched to *Chatting Mode* (Friendly)")
+        await send_business_reply(context, message, "✅ Switched to Chatting Mode (Friendly)")
         return
 
-    if lower_text in ["language", "lang", "/lang"]:
+    if lower_text in ["language", "lang", "lange", "/lang", "bhasha"]:
         await send_business_reply(context, message,
             "Please choose language:\n\n"
             "1️⃣ Hinglish\n"
@@ -67,12 +68,12 @@ async def business_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    if lower_text == "hindi":
+    if lower_text in ["hindi", "हिंदी"]:
         users.update_one({"user_id": user.id}, {"$set": {"biz_lang": "hindi"}})
         await send_business_reply(context, message, "✅ भाषा हिंदी में बदल दी गई है।")
         return
 
-    if lower_text == "hinglish":
+    if lower_text in ["hinglish", "english"]:
         users.update_one({"user_id": user.id}, {"$set": {"biz_lang": "hinglish"}})
         await send_business_reply(context, message, "✅ Language changed to Hinglish.")
         return
