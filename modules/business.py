@@ -87,10 +87,12 @@ User name: {user.first_name}"""
 
     if important and BUSINESS_GROUP_ID:
         try:
+            safe_name = "".join(c for c in (user.first_name or "User") if c.isalnum() or c.isspace()) or "User"
+
             caption = (
-                f"🔔 *New Work Request*\n\n"
-                f"👤 From: [{user.first_name}](tg://user?id={user.id})\n"
-                f"🆔 `{user.id}`\n"
+                f"🔔 New Work Request\n\n"
+                f"👤 From: {safe_name}\n"
+                f"🆔 {user.id}\n"
                 f"💬 {text or 'Media received'}\n\n"
                 f"@{OWNER_USERNAME}"
             )
@@ -99,21 +101,18 @@ User name: {user.first_name}"""
                 await context.bot.send_photo(
                     chat_id=BUSINESS_GROUP_ID,
                     photo=message.photo[-1].file_id,
-                    caption=caption,
-                    parse_mode="Markdown"
+                    caption=caption
                 )
             elif has_document:
                 await context.bot.send_document(
                     chat_id=BUSINESS_GROUP_ID,
                     document=message.document.file_id,
-                    caption=caption,
-                    parse_mode="Markdown"
+                    caption=caption
                 )
             else:
                 await context.bot.send_message(
                     chat_id=BUSINESS_GROUP_ID,
-                    text=caption,
-                    parse_mode="Markdown"
+                    text=caption
                 )
             print("✅ Forwarded to group", flush=True)
         except Exception as e:
