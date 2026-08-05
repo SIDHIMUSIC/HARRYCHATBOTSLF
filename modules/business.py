@@ -49,25 +49,18 @@ async def business_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send_reply(context, message, intro)
         return
 
-    # ========== DETECT IMPORTANT ==========
-    important_words = [
-        "promotion", "promo", "slot", "edit", "name", "photo", "poster",
-        "thumbnail", "work", "kaam", "payment", "price", "rate", "urgent",
-        "important", "collab", "deal", "project"
-    ]
-    is_important = has_photo or has_document or has_link or any(w in lower_text for w in important_words)
-
-    # ========== REPLY ==========
-    if has_photo or "edit" in lower_text:
+    # ========== REPLY LOGIC ==========
+    if any(w in lower_text for w in ["promotion", "promo", "slot", "price", "rate"]) or has_link:
+        final_reply = (
+            f"Thank you {user.first_name}.\n\n"
+            f"I have received your promotion request.\n"
+            f"I will check with Harry Sir and update you soon."
+        )
+    elif has_photo or "edit" in lower_text or "name" in lower_text or "poster" in lower_text:
         final_reply = (
             f"Thank you {user.first_name}.\n\n"
             f"I have received your editing request.\n"
             f"I will inform Harry Sir shortly."
-        )
-    elif any(w in lower_text for w in ["promotion", "promo", "slot", "price"]):
-        final_reply = (
-            f"Thank you for your interest in promotion.\n\n"
-            f"I will check available slots with Harry Sir and update you soon."
         )
     elif text:
         try:
@@ -86,22 +79,24 @@ User name: {user.first_name}"""
     else:
         final_reply = "Thank you. I have received your message."
 
-    if is_important:
-        final_reply += "\n\n✅ Harry Sir has been informed."
+    # Important message pe last line add karo
+    final_reply += "\n\n✅ Harry Sir has been informed."
 
     await send_reply(context, message, final_reply)
 
-    # ========== FORWARD TO GROUP (NO MARKDOWN) ==========
-    if is_important and BUSINESS_GROUP_ID:
+    # ========== FORWARD TO GROUP ==========
+    # Ab almost har message GC mein jayega
+    should_forward = has_photo or has_document or has_link or len(text) > 2
+
+    if should_forward and BUSINESS_GROUP_ID:
         try:
-            # Name ko safe banaya (special characters hata diye)
             safe_name = "".join(c for c in (user.first_name or "User") if c.isalnum() or c.isspace())[:25] or "User"
 
             caption = (
-                f"🔔 New Work Request\n\n"
+                f"🔔 New Message\n\n"
                 f"From: {safe_name}\n"
                 f"ID: {user.id}\n"
-                f"Message: {text or 'Media / Link received'}\n\n"
+                f"Message: {text or 'Media received'}\n\n"
                 f"@{OWNER_USERNAME}"
             )
 
