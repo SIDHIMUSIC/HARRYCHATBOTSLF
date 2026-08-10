@@ -29,8 +29,7 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
     try:
         await context.bot.send_message(
             chat_id=OWNER_ID,
-            text=f"🚨 *BOT ERROR (PRIVATE)*\n\n```\n{error_text[:3500]}\n```",
-            parse_mode="Markdown",
+            text=f"🚨 BOT ERROR (PRIVATE)\n\n{error_text[:3500]}"
         )
     except Exception as e:
         print("OWNER DM FAILED:", e)
@@ -39,8 +38,7 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
         if LOG_GROUP_ID:
             await context.bot.send_message(
                 chat_id=LOG_GROUP_ID,
-                text=f"🚨 *BOT ERROR*\n\n```\n{error_text[:3500]}\n```",
-                parse_mode="Markdown",
+                text=f"🚨 BOT ERROR\n\n{error_text[:3500]}"
             )
     except Exception as e:
         print("LOG GROUP FAILED:", e)
@@ -52,20 +50,22 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
 async def on_startup(application):
     try:
         me = await application.bot.get_me()
+
         text = (
-            f"🟢 *Bot Successfully Started!*\n\n"
-            f"🤖 Name: *{me.first_name}*\n"
+            f"🟢 Bot Successfully Started!\n\n"
+            f"🤖 Name: {me.first_name}\n"
             f"👤 Username: @{me.username}\n"
-            f"🆔 Bot ID: `{me.id}`\n"
-            f"👑 Owner: `{OWNER_ID}`\n\n"
+            f"🆔 Bot ID: {me.id}\n"
+            f"👑 Owner: {OWNER_ID}\n\n"
             f"✅ Bot is now online and ready."
         )
+
         await application.bot.send_message(
             chat_id=OWNER_ID,
-            text=text,
-            parse_mode="Markdown"
+            text=text
         )
         print("✅ Startup notification sent to Owner")
+
     except Exception as e:
         print("❌ Startup notification failed:", e)
 
@@ -78,7 +78,7 @@ def main():
     print("\n🔄 Loading modules...")
     load_modules(app)
 
-    # 2️⃣ Tools auto-load (tools/ folder)
+    # 2️⃣ Tools auto-load
     print("\n🔄 Loading tools...")
     load_tools(app)
 
@@ -104,7 +104,6 @@ def main():
 \033[0m
 """)
 
-    # ========== Business Mode support ==========
     app.run_polling(
         drop_pending_updates=True,
         allowed_updates=[
