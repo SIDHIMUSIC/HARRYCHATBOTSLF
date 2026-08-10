@@ -23,7 +23,10 @@ except Exception:
 
 async def ping(update, context):
     start = time.time()
+    
+    # Temporary message
     temp = await update.message.reply_text("🏓 Checking bot status...")
+    
     end = time.time()
     ms = round((end - start) * 1000, 2)
 
@@ -54,12 +57,15 @@ async def ping(update, context):
         [InlineKeyboardButton("📢 Support Channel", url=SUPPORT_CHANNEL)]
     ])
 
+    # Temp message delete karo
     try:
         await temp.delete()
     except Exception:
         pass
 
-    await update.message.reply_photo(
+    # Ab naya message bhejo (reply force mat karo)
+    await context.bot.send_photo(
+        chat_id=update.effective_chat.id,
         photo=random.choice(START_IMAGES),
         caption=caption,
         parse_mode="HTML",
