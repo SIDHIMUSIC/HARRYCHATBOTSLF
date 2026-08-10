@@ -48,6 +48,28 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
     print("BOT ERROR:\n", error_text)
 
 
+# ================= STARTUP NOTIFICATION =================
+async def on_startup(application):
+    try:
+        me = await application.bot.get_me()
+        text = (
+            f"🟢 *Bot Successfully Started!*\n\n"
+            f"🤖 Name: *{me.first_name}*\n"
+            f"👤 Username: @{me.username}\n"
+            f"🆔 Bot ID: `{me.id}`\n"
+            f"👑 Owner: `{OWNER_ID}`\n\n"
+            f"✅ Bot is now online and ready."
+        )
+        await application.bot.send_message(
+            chat_id=OWNER_ID,
+            text=text,
+            parse_mode="Markdown"
+        )
+        print("✅ Startup notification sent to Owner")
+    except Exception as e:
+        print("❌ Startup notification failed:", e)
+
+
 # ================= MAIN =================
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
@@ -62,6 +84,9 @@ def main():
 
     # 3️⃣ Error handler
     app.add_error_handler(error_handler)
+
+    # 4️⃣ Startup notification
+    app.post_init = on_startup
 
     print("""
 \033[96m
@@ -79,7 +104,7 @@ def main():
 \033[0m
 """)
 
-    # ========== IMPORTANT: Business Mode support ==========
+    # ========== Business Mode support ==========
     app.run_polling(
         drop_pending_updates=True,
         allowed_updates=[
