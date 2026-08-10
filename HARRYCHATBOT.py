@@ -78,7 +78,7 @@ def main():
 \033[0m
 """)
 
-    # ========== STARTUP MESSAGE (Most Reliable) ==========
+    # ========== STARTUP MESSAGE (Owner + Log Group) ==========
     async def send_startup():
         try:
             me = await app.bot.get_me()
@@ -90,15 +90,29 @@ def main():
                 f"👑 Owner: {OWNER_ID}\n\n"
                 f"✅ Bot is now online and ready."
             )
-            await app.bot.send_message(chat_id=OWNER_ID, text=text)
-            print("✅ Startup notification sent to Owner")
+
+            # 1. Owner ke DM mein
+            try:
+                await app.bot.send_message(chat_id=OWNER_ID, text=text)
+                print("✅ Startup notification sent to Owner")
+            except Exception as e:
+                print("❌ Owner DM failed:", e)
+
+            # 2. Log Group mein
+            if LOG_GROUP_ID:
+                try:
+                    await app.bot.send_message(chat_id=LOG_GROUP_ID, text=text)
+                    print("✅ Startup notification sent to Log Group")
+                except Exception as e:
+                    print("❌ Log Group failed:", e)
+
         except Exception as e:
             print("❌ Startup notification failed:", e)
 
-    # Run the startup message before polling starts
+    # Startup message bhejo
     loop = asyncio.get_event_loop()
     loop.run_until_complete(send_startup())
-    # =====================================================
+    # ========================================================
 
     app.run_polling(
         drop_pending_updates=True,
