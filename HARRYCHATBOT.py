@@ -4,6 +4,7 @@ Made with ❤️ by Harry (@SANATANI_BACHA)
 """
 
 import traceback
+import asyncio
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes
 
@@ -46,30 +47,6 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
     print("BOT ERROR:\n", error_text)
 
 
-# ================= STARTUP NOTIFICATION =================
-async def on_startup(application):
-    try:
-        me = await application.bot.get_me()
-
-        text = (
-            f"🟢 Bot Successfully Started!\n\n"
-            f"🤖 Name: {me.first_name}\n"
-            f"👤 Username: @{me.username}\n"
-            f"🆔 Bot ID: {me.id}\n"
-            f"👑 Owner: {OWNER_ID}\n\n"
-            f"✅ Bot is now online and ready."
-        )
-
-        await application.bot.send_message(
-            chat_id=OWNER_ID,
-            text=text
-        )
-        print("✅ Startup notification sent to Owner")
-
-    except Exception as e:
-        print("❌ Startup notification failed:", e)
-
-
 # ================= MAIN =================
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
@@ -84,9 +61,6 @@ def main():
 
     # 3️⃣ Error handler
     app.add_error_handler(error_handler)
-
-    # 4️⃣ Startup notification
-    app.post_init = on_startup
 
     print("""
 \033[96m
@@ -103,6 +77,28 @@ def main():
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 \033[0m
 """)
+
+    # ========== STARTUP MESSAGE (Most Reliable) ==========
+    async def send_startup():
+        try:
+            me = await app.bot.get_me()
+            text = (
+                f"🟢 Bot Successfully Started!\n\n"
+                f"🤖 Name: {me.first_name}\n"
+                f"👤 Username: @{me.username}\n"
+                f"🆔 Bot ID: {me.id}\n"
+                f"👑 Owner: {OWNER_ID}\n\n"
+                f"✅ Bot is now online and ready."
+            )
+            await app.bot.send_message(chat_id=OWNER_ID, text=text)
+            print("✅ Startup notification sent to Owner")
+        except Exception as e:
+            print("❌ Startup notification failed:", e)
+
+    # Run the startup message before polling starts
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(send_startup())
+    # =====================================================
 
     app.run_polling(
         drop_pending_updates=True,
