@@ -4,7 +4,6 @@ from config import SUPPORT_CHANNEL
 from helpers.decorators import is_owner
 from helpers.database import users, bot_bans, chat_logs
 import time
-import asyncio
 
 
 # ================= PREMIUM EMOJI =================
@@ -81,7 +80,6 @@ async def owner_info(update, context):
         "👇 ᴄᴏɴɴᴇᴄᴛ & sᴛᴀʏ ᴜᴘᴅᴀᴛᴇᴅ"
     )
 
-    # ✅ Buttons — plain text only (HTML nahi)
     keyboard = InlineKeyboardMarkup([
         [make_btn("❍ 𝐎ᴡɴᴇʀ ❍", url=f"https://t.me/{owner_username}", pe_name="owner")],
         [make_btn("❍ Support Channel ❍", url=SUPPORT_CHANNEL, pe_name="support")],
@@ -119,29 +117,6 @@ async def stats(update, context):
     )
 
 
-async def broadcast(update, context):
-    if not is_owner(update.effective_user.id):
-        return await update.message.reply_text("❌ Owner only command")
-    if not context.args:
-        return await update.message.reply_text("❌ Use:\n/broadcast Your message here")
-
-    msg = " ".join(context.args)
-    sent = failed = 0
-    await update.message.reply_text("📤 Broadcast start ho raha hai...")
-
-    for u in users.find({}, {"user_id": 1}):
-        try:
-            await context.bot.send_message(chat_id=u["user_id"], text=msg)
-            sent += 1
-            await asyncio.sleep(0.05)
-        except Exception:
-            failed += 1
-
-    await update.message.reply_text(
-        f"✅ Broadcast complete\n\n📨 Sent: {sent}\n❌ Failed: {failed}"
-    )
-
-
 async def id_cmd(update, context):
     user = update.effective_user
     chat = update.effective_chat
@@ -170,6 +145,5 @@ async def pe_status(update, context):
 def register(app):
     app.add_handler(CommandHandler("owner", owner_info))
     app.add_handler(CommandHandler("stats", stats))
-    app.add_handler(CommandHandler("broadcast", broadcast))
     app.add_handler(CommandHandler("id", id_cmd))
     app.add_handler(CommandHandler("pestatus", pe_status))
