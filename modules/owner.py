@@ -99,6 +99,7 @@ async def stats(update, context):
     if not is_owner(update.effective_user.id):
         return await update.message.reply_text("❌ Owner only command")
 
+    # Native
     total_users = users.count_documents({})
     total_banned = bot_bans.count_documents({})
     total_groups = len(
@@ -107,12 +108,30 @@ async def stats(update, context):
     since = time.time() - 86400
     daily_active = len(chat_logs.distinct("user_id", {"time": {"$gte": since}}))
 
+    # Migrated (tgusersdb)
+    migrated = 0
+    try:
+        from pymongo import MongoClient
+        from config import MONGO_URI
+        client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+        db = client["telegram_bot"]
+        if "tgusersdb" in db.list_collection_names():
+            migrated = db["tgusersdb"].count_documents({})
+        client.close()
+    except Exception:
+        pass
+
+    # Unique total (approx)
+    unique_total = total_users + migrated  # rough, exact ke liye set use karna padta
+
     await update.message.reply_text(
         f"📊 **BOT DASHBOARD**\n\n"
-        f"👥 Total Users: `{total_users}`\n"
-        f"🔥 Daily Active Users: `{daily_active}`\n"
-        f"👨‍👩‍👧‍👦 Total Groups: `{total_groups}`\n"
-        f"🚫 Bot Banned Users: `{total_banned}`",
+        f"👤 Native Users: `{total_users}`\n"
+        f"📥 Migrated Users: `{migrated}`\n"
+        f"🔀 Combined: `{unique_total}`\n"
+        f"🔥 Daily Active: `{daily_active}`\n"
+        f"👨‍👩‍👧‍👦 Groups: `{total_groups}`\n"
+        f"🚫 Bot Banned: `{total_banned}`",
         parse_mode="Markdown",
     )
 
