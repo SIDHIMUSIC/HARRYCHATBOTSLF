@@ -1,21 +1,18 @@
 """
-/broadcast  — Advanced broadcast (users + tgusersdb migrated)
-/bcstats    — Broadcast related stats
-Owner only | Auto-loaded tool
+/broadcast  — Advanced broadcast (users + tgusersdb)
+/bcstats    — Stats
+Owner only | Background mode (Heroku safe)
 """
 
 import asyncio
 from telegram.ext import CommandHandler
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from config import OWNER_ID, SUPPORT_CHANNEL
+from config import OWNER_ID, SUPPORT_CHANNEL, MONGO_URI
 from helpers.database import users
 from pymongo import MongoClient
-from config import MONGO_URI
 
-# ============ SETTINGS ============
-SLEEP_PER_MSG = 0.07          # flood se bachne ke liye
-PROGRESS_EVERY = 50           # har 50 pe progress update
-# ==================================
+SLEEP_PER_MSG = 0.05
+PROGRESS_EVERY = 40
 
 
 def is_owner(uid: int) -> bool:
@@ -23,12 +20,9 @@ def is_owner(uid: int) -> bool:
 
 
 def get_all_user_ids():
-    """
-    Normal users + migrated tgusersdb dono se unique user_ids nikalta hai
-    """
     ids = set()
 
-    # 1. Native users collection
+    # Native users
     try:
         for u in users.find({}, {"user_id": 1}):
             if "user_id" in u:
@@ -36,7 +30,7 @@ def get_all_user_ids():
     except Exception:
         pass
 
-    # 2. Migrated tgusersdb
+    # Migrated tgusersdb
     try:
         client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
         db = client["telegram_bot"]
@@ -72,8 +66,7 @@ async def bcstats(update, context):
     except Exception:
         pass
 
-    all_ids = get_all_user_ids()
-    unique = len(all_ids)
+    unique = len(get_all_user_ids())
 
     text = (
         f"📊 <b>BROADCAST STATS</b>\n"
@@ -81,48 +74,15 @@ async def bcstats(update, context):
         f"👤 Native users: <code>{native}</code>\n"
         f"📥 Migrated (tgusersdb): <code>{migrated}</code>\n"
         f"🔀 Unique total: <code>{unique}</code>\n\n"
-        f"✅ Broadcast in unique users ko jayega\n"
-        f"📌 Command: <code>/broadcast your message</code>"
+        f"📌 <code>/broadcast your message</code>\n"
+        f"📌 Reply karke bhi <code>/broadcast</code>"
     )
     await status.edit_text(text, parse_mode="HTML")
 
 
-async def broadcast(update, context):
-    if not is_owner(update.effective_user.id):
-        return await update.message.reply_text("❌ Owner only command")
-
-    # Message nikaalo
-    if update.message.reply_to_message:
-        # Reply karke bhi broadcast kar sakte ho (text/photo/video)
-        target_msg = update.message.reply_to_message
-        mode = "copy"
-    elif context.args:
-        text_msg = " ".join(context.args)
-        mode = "text"
-    else:
-        return await update.message.reply_text(
-            "❌ <b>Kaise use kare:</b>\n\n"
-            "1️⃣ <code>/broadcast Hello everyone</code>\n"
-            "2️⃣ Kisi message pe reply karke <code>/broadcast</code>\n\n"
-            "Stats dekhne ke liye: <code>/bcstats</code>",
-            parse_mode="HTML"
-        )
-
-    # Users collect
-    status = await update.message.reply_text("🔄 Users collect kar raha hu...")
-    all_ids = get_all_user_ids()
+async def _run_broadcast(context, status_msg, all_ids, mode, text_msg=None, target_msg=None):
+    """Background me chalta hai — bot hang nahi hota"""
     total = len(all_ids)
-
-    if total == 0:
-        return await status.edit_text("❌ Koi user nahi mila database me")
-
-    await status.edit_text(
-        f"📤 <b>Broadcast Start</b>\n"
-        f"👥 Total unique users: <code>{total}</code>\n"
-        f"⏳ Please wait...",
-        parse_mode="HTML"
-    )
-
     sent = failed = 0
 
     for i, uid in enumerate(all_ids, 1):
@@ -130,28 +90,24 @@ async def broadcast(update, context):
             if mode == "text":
                 await context.bot.send_message(chat_id=uid, text=text_msg)
             else:
-                # reply wala message copy karo
                 await target_msg.copy(chat_id=uid)
-
             sent += 1
         except Exception:
             failed += 1
 
-        # Progress update
         if i % PROGRESS_EVERY == 0 or i == total:
             try:
                 percent = round((i / total) * 100, 1)
-                bar_len = 10
-                filled = int(bar_len * i / total)
-                bar = "█" * filled + "░" * (bar_len - filled)
+                filled = int(10 * i / total)
+                bar = "█" * filled + "░" * (10 - filled)
 
-                await status.edit_text(
-                    f"📤 <b>Broadcasting...</b>\n"
+                await status_msg.edit_text(
+                    f"📤 <b>Broadcasting (background)</b>\n"
                     f"━━━━━━━━━━━━━━━━━━\n"
                     f"{bar} {percent}%\n\n"
                     f"✅ Sent: <code>{sent}</code>\n"
                     f"❌ Failed: <code>{failed}</code>\n"
-                    f"📊 Progress: <code>{i}/{total}</code>",
+                    f"📊 {i}/{total}",
                     parse_mode="HTML"
                 )
             except Exception:
@@ -159,24 +115,70 @@ async def broadcast(update, context):
 
         await asyncio.sleep(SLEEP_PER_MSG)
 
-    # Final report
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("📢 Support", url=SUPPORT_CHANNEL)]
-    ])
+    # Final
+    try:
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("📢 Support", url=SUPPORT_CHANNEL)]
+        ])
+        await status_msg.edit_text(
+            f"✅ <b>Broadcast Complete</b>\n"
+            f"━━━━━━━━━━━━━━━━━━\n\n"
+            f"📨 Sent: <code>{sent}</code>\n"
+            f"❌ Failed: <code>{failed}</code>\n"
+            f"👥 Total: <code>{total}</code>\n"
+            f"🎯 Success: <code>{round((sent/total)*100, 1) if total else 0}%</code>",
+            parse_mode="HTML",
+            reply_markup=keyboard
+        )
+    except Exception:
+        pass
+
+
+async def broadcast(update, context):
+    if not is_owner(update.effective_user.id):
+        return await update.message.reply_text("❌ Owner only")
+
+    # Input check
+    if update.message.reply_to_message:
+        mode = "copy"
+        target_msg = update.message.reply_to_message
+        text_msg = None
+    elif context.args:
+        mode = "text"
+        text_msg = " ".join(context.args)
+        target_msg = None
+    else:
+        return await update.message.reply_text(
+            "❌ <b>Use:</b>\n\n"
+            "1️⃣ <code>/broadcast Hello everyone</code>\n"
+            "2️⃣ Message pe reply karke <code>/broadcast</code>\n\n"
+            "Stats: <code>/bcstats</code>",
+            parse_mode="HTML"
+        )
+
+    status = await update.message.reply_text("🔄 Users collect kar raha hu...")
+
+    # Heavy work thread me
+    all_ids = await asyncio.to_thread(get_all_user_ids)
+    total = len(all_ids)
+
+    if total == 0:
+        return await status.edit_text("❌ Koi user nahi mila")
 
     await status.edit_text(
-        f"✅ <b>Broadcast Complete</b>\n"
-        f"━━━━━━━━━━━━━━━━━━\n\n"
-        f"📨 Successfully Sent: <code>{sent}</code>\n"
-        f"❌ Failed / Blocked: <code>{failed}</code>\n"
-        f"👥 Total Targeted: <code>{total}</code>\n\n"
-        f"🎯 Success Rate: <code>{round((sent/total)*100, 1) if total else 0}%</code>",
-        parse_mode="HTML",
-        reply_markup=keyboard
+        f"📤 <b>Broadcast started in background</b>\n"
+        f"👥 Users: <code>{total}</code>\n"
+        f"⏳ Bot on rahega, wait karo...",
+        parse_mode="HTML"
+    )
+
+    # Background task — handler turant free
+    context.application.create_task(
+        _run_broadcast(context, status, all_ids, mode, text_msg, target_msg)
     )
 
 
 def register(app):
     app.add_handler(CommandHandler("broadcast", broadcast))
-    app.add_handler(CommandHandler("bc", broadcast))          # short alias
+    app.add_handler(CommandHandler("bc", broadcast))
     app.add_handler(CommandHandler("bcstats", bcstats))
