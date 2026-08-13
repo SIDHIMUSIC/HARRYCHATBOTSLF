@@ -1,7 +1,5 @@
 """
-Offline migration script — bot ke bahar chalta hai
-Heroku pe aise chalao:
-
+Offline migration — bot ke bahar chalao
 heroku run python tools/migrate_offline.py
 """
 
@@ -18,47 +16,102 @@ BATCH_SIZE = 100
 MAX_DOCS = 10000
 
 
+def log(msg):
+    print(msg, flush=True)
+
+
 def main():
+    log("=" * 40)
+    log("🚀 Offline Migration Start")
+    log("=" * 40)
+
     if not MONGO_URI:
-        print("❌ MONGODB_URI not found")
+        log("❌ MONGODB_URI not found in ENV")
         sys.exit(1)
 
-    client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=10000)
+    log(f"🔗 Connecting to MongoDB...")
+    try:
+        client = MongoClient(
+            MONGO_URI,
+            serverSelectionTimeoutMS=15000,
+            connectTimeoutMS=15000,
+        )
+        # force connection test
+        client.admin.command("ping")
+        log("✅ MongoDB connected")
+    except Exception as e:
+        log(f"❌ Connection failed: {e}")
+        sys.exit(1)
+
     source = client[SOURCE_DB]
     target = client[TARGET_DB]
 
-    print(f"📂 {SOURCE_DB} → {TARGET_DB}")
-    print("-" * 40)
+    log(f"📂 {SOURCE_DB} → {TARGET_DB}")
+    log("-" * 40)
+
+    try:
+        src_cols = source.list_collection_names()
+        log(f"Source collections: {src_cols}")
+    except Exception as e:
+        log(f"❌ Cannot list source collections: {e}")
+        sys.exit(1)
 
     for name in COLLECTIONS:
-        if name not in source.list_collection_names():
-            print(f"⏭ {name}: source mein nahi")
+        log(f"\n🔄 Processing: {name}")
+
+        if name not in src_cols:
+            log(f"⏭ {name}: source mein nahi mila")
+            continue
+
+        try:
+            total_in_source = source[name].count_documents({})
+            log(f"   Source me total docs: {total_in_source}")
+        except Exception as e:
+            log(f"❌ Count failed: {e}")
             continue
 
         inserted = skipped = total = 0
         batch = []
 
-        for doc in source[name].find({}).batch_size(BATCH_SIZE):
-            total += 1
-            if total > MAX_DOCS:
-                print(f"⚠ {name}: max {MAX_DOCS} limit hit")
-                break
+        try:
+            cursor = source[name].find({}).batch_size(BATCH_SIZE)
 
-            d = {k: v for k, v in doc.items() if k != "_id"}
+            for doc in cursor:
+                total += 1
+                if total > MAX_DOCS:
+                    log(f"⚠ Max limit {MAX_DOCS} hit")
+                    break
 
-            exists = False
-            if name == "tgusersdb" and "user_id" in d:
-                exists = target[name].find_one({"user_id": d["user_id"]}, {"_id": 1}) is not None
-            elif name == "chats" and "chat_id" in d:
-                exists = target[name].find_one({"chat_id": d["chat_id"]}, {"_id": 1}) is not None
+                d = {k: v for k, v in doc.items() if k != "_id"}
 
-            if exists:
-                skipped += 1
-                continue
+                exists = False
+                if name == "tgusersdb" and "user_id" in d:
+                    exists = target[name].find_one({"user_id": d["user_id"]}, {"_id": 1}) is not None
+                elif name == "chats" and "chat_id" in d:
+                    exists = target[name].find_one({"chat_id": d["chat_id"]}, {"_id": 1}) is not None
 
-            batch.append(d)
+                if exists:
+                    skipped += 1
+                    continue
 
-            if len(batch) >= BATCH_SIZE:
+                batch.append(d)
+
+                if len(batch) >= BATCH_SIZE:
+                    try:
+                        target[name].insert_many(batch, ordered=False)
+                        inserted += len(batch)
+                    except Exception:
+                        for item in batch:
+                            try:
+                                target[name].insert_one(item)
+                                inserted += 1
+                            except Exception:
+                                skipped += 1
+                    batch = []
+                    log(f"   Progress: +{inserted} inserted | {skipped} skipped")
+
+            # last batch
+            if batch:
                 try:
                     target[name].insert_many(batch, ordered=False)
                     inserted += len(batch)
@@ -69,29 +122,22 @@ def main():
                             inserted += 1
                         except Exception:
                             skipped += 1
-                batch = []
-                print(f"  {name}: {inserted} inserted...", flush=True)
 
-        if batch:
-            try:
-                target[name].insert_many(batch, ordered=False)
-                inserted += len(batch)
-            except Exception:
-                for item in batch:
-                    try:
-                        target[name].insert_one(item)
-                        inserted += 1
-                    except Exception:
-                        skipped += 1
+            log(f"✅ {name}: +{inserted} | skip {skipped} | checked {total}")
 
-        print(f"✅ {name}: +{inserted} | skip {skipped} | total checked {total}")
+        except Exception as e:
+            log(f"❌ Error in {name}: {e}")
 
-    # final
-    tu = target["tgusersdb"].count_documents({}) if "tgusersdb" in target.list_collection_names() else 0
-    tc = target["chats"].count_documents({}) if "chats" in target.list_collection_names() else 0
-    print("-" * 40)
-    print(f"📊 {TARGET_DB} now → {tu} users | {tc} chats")
-    print("✅ Done")
+    # final counts
+    log("-" * 40)
+    try:
+        tu = target["tgusersdb"].count_documents({}) if "tgusersdb" in target.list_collection_names() else 0
+        tc = target["chats"].count_documents({}) if "chats" in target.list_collection_names() else 0
+        log(f"📊 {TARGET_DB} now → {tu} users | {tc} chats")
+    except Exception as e:
+        log(f"Final count error: {e}")
+
+    log("✅ DONE")
     client.close()
 
 
