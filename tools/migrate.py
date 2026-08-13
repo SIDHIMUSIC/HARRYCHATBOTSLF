@@ -3,7 +3,7 @@
 /migrate — SOURCE_DB se TARGET_DB me selected collections copy karta hai
 Owner only
 """
-
+import asyncio
 from telegram.ext import CommandHandler
 from pymongo import MongoClient
 from config import OWNER_ID, MONGO_URI
