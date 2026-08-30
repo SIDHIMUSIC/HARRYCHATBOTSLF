@@ -16,15 +16,17 @@
     "MONGODB_URI": {
       "description": "MongoDB Connection URI",
       "required": true
+      "value": "mongodb+srv://harryashutosh729:harryashutosh729@harry2.xykka.mongodb.net/?retryWrites=true&w=majority&appName=harry2"
     },
     "OWNER_ID": {
       "description": "Owner Telegram User ID",
       "required": true
+      "value": "8170572505"
     },
     "LOG_GROUP_ID": {
       "description": "Log Group ID (optional)",
       "required": false,
-      "value": "0"
+      "value": "-1003389276372"
     },
     "SUPPORT_CHANNEL": {
       "description": "Support Channel URL",
